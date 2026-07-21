@@ -1,6 +1,6 @@
 # 🎴 Research Flashcard
 
-**Research Flashcard** is a lightweight, web-based flashcard application designed to display niche academic research topics in chemistry, mechanical engineering, physics, and robotics. Built as a simple HTML/JS single-page application, it works cross-platform without complex setup or dependencies.
+**Research Flashcard** is a lightweight, web-based flashcard application designed to display niche academic research topics fyi. Built as a simple HTML/JS single-page application, it works cross-platform without complex setup or dependencies.
 
 ---
 
