@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Flashcards</title>
+    <style>
+        :root {
+            --bg-color: #f2f2f7;
+            --card-bg: #ffffff;
+            --card-border: #d1d1d6;
+            --text-color: #1c1c1e;
+            --btn-bg: #007aff;
+            --btn-text: #ffffff;
+            --secondary-btn-bg: #e5e5ea;
+            --secondary-btn-text: #007aff;
+            --rarity-high-bg: #fff4e6;
+            --rarity-high-border: #ff9f1a;
+            --rarity-mid-bg: #fff9db;
+            --rarity-mid-border: #ffd60a;
+            --rarity-low-bg: #f2f2f7;
+            --rarity-low-border: #c7c7cc;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 100vh;
+            min-height: 100dvh;
+            max-height: 100vh;
+            max-height: 100dvh;
+            padding: 10px;
+            padding-top: max(8px, env(safe-area-inset-top));
+            padding-bottom: max(8px, env(safe-area-inset-bottom));
+            box-sizing: border-box;
+            -webkit-text-size-adjust: 100%;
+            touch-action: manipulation;
+            overflow: hidden;
+        }
+        .header-bar {
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .sync-btn {
+            background-color: var(--secondary-btn-bg);
+            color: var(--secondary-btn-text);
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            min-height: 36px;
+        }
+        #card-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            background: var(--card-bg);
+            border: 3px solid var(--card-border);
+            border-radius: 16px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+            padding: 14px;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            box-sizing: border-box;
+            flex-grow: 1;
+            margin-bottom: 8px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            transition: background-color 220ms ease, border-color 220ms ease, box-shadow 220ms ease, transform 180ms ease, opacity 180ms ease;
+            transform-origin: center center;
+            will-change: transform, opacity;
+        }
+        #card-container.card-dragging {
+            transition: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14);
+        }
+        /* card-specific rarity styles */
+        /* keep card background neutral; only change rim (border) and glow */
+        #card-container.rarity-high {
+            background: var(--card-bg);
+            border: 3px solid var(--rarity-high-border);
+            box-shadow: 0 10px 30px rgba(255,159,26,0.08), 0 0 0 6px rgba(255,159,26,0.04);
+        }
+        #card-container.rarity-mid {
+            background: var(--card-bg);
+            border: 3px solid var(--rarity-mid-border);
+            box-shadow: 0 10px 30px rgba(255,214,10,0.08), 0 0 0 6px rgba(255,214,10,0.04);
+        }
+        #card-container.rarity-low {
+            background: var(--card-bg);
+            border: 3px solid var(--rarity-low-border);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.06), 0 0 0 4px rgba(199,199,204,0.02);
+        }
+        /* page-level background tint when a card is selected (keeps card white)
+           body gets a subtle tint while #card-container background remains var(--card-bg) */
+        body.rarity-high { background-color: rgba(255,159,26,0.04); }
+        body.rarity-mid { background-color: rgba(255,214,10,0.04); }
+        body.rarity-low { background-color: var(--bg-color); }
+        .rarity-tag {
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            min-width: 28px;
+            height: 28px;
+            padding: 0 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 13px;
+            line-height: 1;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+            color: #111;
+        }
+        /* tag uses same color variable as border so they match exactly */
+        #card-container.rarity-high .rarity-tag {
+            background: var(--rarity-high-border);
+            color: #fff;
+            border: 1px solid rgba(0,0,0,0.06);
+        }
+        #card-container.rarity-mid .rarity-tag {
+            background: var(--rarity-mid-border);
+            color: #111;
+            border: 1px solid rgba(0,0,0,0.06);
+        }
+        #card-container.rarity-low .rarity-tag {
+            background: var(--rarity-low-border);
+            color: #111;
+            border: 1px solid rgba(0,0,0,0.06);
+        }
+        #card-content h1 { font-size: 18px; line-height: 1.2; margin: 0 0 8px; border-bottom: 1px solid #e5e5ea; padding-bottom: 6px; }
+        #card-content h2 { font-size: 16px; margin: 10px 0 6px; }
+        #card-content h3 { font-size: 14px; margin: 8px 0 4px; }
+        #card-content p { line-height: 1.35; font-size: 14px; margin: 6px 0; }
+        #card-content strong { color: #000; font-weight: 600; }
+        #card-content code { background: #f2f2f7; padding: 3px 6px; border-radius: 4px; font-family: Menlo, monospace; font-size: 13px; }
+        #card-content ul { padding-left: 18px; margin: 6px 0; }
+        #card-content li { margin-bottom: 4px; font-size: 14px; }
+        #card-content hr { border: 0; border-top: 1px solid #e5e5ea; margin: 8px 0; }
+        #card-content img {
+            display: block;
+            width: 100%;
+            max-height: 140px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin: 6px 0 2px;
+            background: #e5e5ea;
+        }
+        .visual-photo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 140px;
+            max-height: 140px;
+            margin: 6px 0 2px;
+            border-radius: 8px;
+            background: #e5e5ea;
+            color: #6e6e73;
+            font-size: 12px;
+            text-align: center;
+            overflow: hidden;
+        }
+        .visual-photo img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            max-height: 140px;
+            object-fit: contain;
+            margin: 0 !important;
+            background: #e5e5ea;
+        }
+        .visual-photo a {
+            color: inherit;
+            text-decoration: none;
+        }
+        .link-preview {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 12px;
+            background: #f7f7fa;
+            border: 1px solid #d1d1d6;
+        }
+        .link-preview-title {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #111111;
+        }
+        .link-preview-url a {
+            color: var(--btn-bg);
+            text-decoration: none;
+            word-break: break-all;
+        }
+        .controls {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 4px;
+            flex-shrink: 0;
+        }
+        button.nav-btn {
+            flex: 1;
+            padding: 11px;
+            border: none;
+            border-radius: 12px;
+            background-color: var(--btn-bg);
+            color: var(--btn-text);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #d1d1d6;
+            color: #aeaeae;
+        }
+        #progress {
+            font-size: 12px;
+            color: #8e8e93;
+            margin-bottom: 0;
+            flex-shrink: 0;
+        }
+        #folder-selector {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        #error-log {
+            display: none;
+            background-color: #ffcccc;
+            color: #990000;
+            padding: 15px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+    </style>
+    
+    <!-- MathJax for rendering LaTeX/math expressions -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" id="MathJax-script" async></script>
+
+    <!-- SCRIPT BLOCK 1: Isolated Error Handler -->
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            var log = document.getElementById('error-log');
+            if (log) {
+                log.style.display = 'block';
+                log.innerText = "Error caught: " + message + "\nLine: " + lineno + "\nCol: " + colno;
+            } else {
+                alert("Error: " + message + " at line " + lineno);
+            }
+            return false;
+        };
+        window.onunhandledrejection = function(event) {
+
+            var log = document.getElementById("error-log");
+
+            if (!log) {
+                return;
+            }
+
+            log.style.display = "block";
+
+            log.innerText =
+                "Promise Error:\n\n" +
+                event.reason;
+
+        };
+    </script>
+</head>
+<body>
+    <div id="error-log"></div>
+    <div class="header-bar">
+        <span style="font-weight: 700; font-size: 15px; color: #8e8e93;">CARD DECK</span>
+        <input
+            type="file"
+            id="csv-selector"
+            accept=".csv,text/csv"
+            onchange="handleCsvSelection(this.files)">
+    </div>
+    <div id="card-container">
+        <div id="card-content"><h3>Loading deck...</h3></div>
+    </div>
+    <div class="controls">
+        <button id="prev-btn" class="nav-btn" onclick="prevCard()" disabled>Previous</button>
+        <button id="next-btn" class="nav-btn" onclick="nextCard()" disabled>Next</button>
+    </div>
+    <div id="progress">0 of 0</div>
+
+    <!-- SCRIPT BLOCK 2: App Logic -->
+    <script>
+        var cards = [];
+        var currentIndex = 0;
+        var currentPhotoLoadToken = 0;
+        var swipeStartX = null;
+        var swipeStartY = null;
+        var isDragging = false;
+        var dragOffsetX = 0;
+        
+        function mapRarityToClass(rarityText) {
+            if (!rarityText) return 'rarity-low';
+            var normalized = rarityText.trim().toLowerCase();
+            if (normalized.indexOf('high') !== -1 ||
+                (normalized.indexOf('popular') !== -1 && normalized.indexOf('moderate') === -1 && normalized.indexOf('low') === -1)) {
+                return 'rarity-high';
+            }
+            if (normalized.indexOf('moderate') !== -1 || normalized.indexOf('mid') !== -1) {
+                return 'rarity-mid';
+            }
+            return 'rarity-low';
+        }
+
+        function createCardMarkdown(title, category, content, link, rarityText) {
+            var sections = [];
+            if (content) {
+                // content already in md-style; keep splitting by " | " into sub-sections as before
+                sections = content.split(/\s*\|\s*/).map(function(part) {
+                    var trimmed = part.trim();
+                    if (!trimmed) return null;
+                    var colonIndex = trimmed.indexOf(':');
+                    if (colonIndex > 0) {
+                        return '**' + trimmed.substring(0, colonIndex).trim() + ':** ' + trimmed.substring(colonIndex + 1).trim();
+                    }
+                    return trimmed;
+                }).filter(Boolean);
+            }
+
+            var markdown = '# ' + title + '\n\n';
+            if (category) {
+                markdown += '**Category:** ' + category + '\n\n';
+            }
+            if (sections.length > 0) {
+                markdown += sections.join('\n\n');
+            }
+            markdown += '\n\n![Visual reference](visual-reference)';
+            return markdown;
+        }
+
+        function parseCsv(text) {
+            var rows = [];
+            var current = [];
+            var field = '';
+            var inQuotes = false;
+            text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+            for (var i = 0; i < text.length; i++) {
+                var ch = text[i];
+                if (ch === '"') {
+                    if (inQuotes && text[i + 1] === '"') {
+                        field += '"';
+                        i += 1;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (ch === ',' && !inQuotes) {
+                    current.push(field);
+                    field = '';
+                } else if (ch === '\n' && !inQuotes) {
+                    current.push(field);
+                    rows.push(current);
+                    current = [];
+                    field = '';
+                } else {
+                    field += ch;
+                }
+            }
+            if (field !== '' || current.length > 0) {
+                current.push(field);
+                rows.push(current);
+            }
+            return rows;
+        }
+
+        function buildCardsFromCsv(csvText) {
+            var rows = parseCsv(csvText);
+            if (!rows || rows.length < 2) {
+                return [];
+            }
+            var headers = rows[0].map(function(value) { return value.trim().toLowerCase(); });
+            var titleIndex = headers.indexOf('title');
+            var categoryIndex = headers.indexOf('category');
+            var contentIndex = headers.indexOf('content');
+            var linkIndex = headers.indexOf('link');
+            var rarityIndex = headers.indexOf('rarity');
+            // reasonable fallbacks if headers missing
+            if (titleIndex === -1) titleIndex = 0;
+            if (categoryIndex === -1) categoryIndex = 1;
+            if (contentIndex === -1) contentIndex = 2;
+            if (linkIndex === -1) linkIndex = 3;
+            if (rarityIndex === -1) rarityIndex = 4;
+
+            var built = [];
+            for (var i = 1; i < rows.length; i++) {
+                var row = rows[i];
+                if (!row || row.length === 0) continue;
+                var title = (row[titleIndex] || '').trim();
+                if (!title) continue;
+                var category = (row[categoryIndex] || '').trim();
+                var content = (row[contentIndex] || '').trim();
+                var link = (row[linkIndex] || '').trim();
+                var rarityText = (row[rarityIndex] || '').trim();
+                built.push({
+                   title: title,
+                   markdown: createCardMarkdown(title, category, content, link, rarityText),
+                   rarityClass: mapRarityToClass(rarityText),
+                   rarityText: rarityText || 'Low Popularity'
+                });
+            }
+            return built;
+        }
+
+        function updateCardContainerRarity() {
+            var container = document.getElementById('card-container');
+            if (!container || cards.length === 0) return;
+            // apply classes to container
+            container.classList.remove('rarity-high', 'rarity-mid', 'rarity-low');
+            var clazz = cards[currentIndex].rarityClass || 'rarity-low';
+            container.classList.add(clazz);
+
+            // also update page-level class for UI background tint (keeps card white)
+            document.body.classList.remove('rarity-high', 'rarity-mid', 'rarity-low');
+            document.body.classList.add(clazz);
+
+            // create or update top-right rarity tag
+            var tag = container.querySelector('.rarity-tag');
+            if (!tag) {
+                tag = document.createElement('div');
+                tag.className = 'rarity-tag';
+                container.appendChild(tag);
+            }
+
+            var label = 'L';
+            if (clazz === 'rarity-high') label = 'H';
+            else if (clazz === 'rarity-mid') label = 'M';
+            tag.textContent = label;
+
+            // ensure tag inherits styling from container class (we rely on CSS selectors)
+        }
+
+        function buildBingSearchUrl(query) {
+            return 'https://www.bing.com/search?q=' + encodeURIComponent(query + ' photo');
+        }
+
+        function extractFirstBingResultUrl(html) {
+            var match = html.match(/<li[^>]*class="[^"]*b_algo[^"]*"[^>]*>.*?<a\s+href="([^"]+)"/is);
+            if (!match) {
+                match = html.match(/<a\s+href="([^"]+)"[^>]*>[^<]*<h2>/i);
+            }
+            if (!match) return null;
+            return match[1];
+        }
+
+        function extractOpenGraphImageUrl(html) {
+            var match = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+            if (!match) {
+                match = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+            }
+            if (!match) {
+                match = html.match(/<meta[^>]+itemprop=["']image["'][^>]+content=["']([^"']+)["']/i);
+            }
+            if (!match) {
+                match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+            }
+            if (!match) return null;
+            return match[1];
+        }
+
+        function loadBingPhotoIntoPlaceholder(placeholder, query, token) {
+            if (!placeholder || !query) return;
+            placeholder.innerHTML = '<span>Loading photo...</span>';
+
+            var searchUrl = buildBingSearchUrl(query);
+            fetch(searchUrl)
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('Search request failed');
+                    }
+                    return response.text();
+                })
+                .then(function(html) {
+                    if (token !== currentPhotoLoadToken) return;
+                    var resultUrl = extractFirstBingResultUrl(html);
+                    if (!resultUrl) {
+                        throw new Error('No search result found');
+                    }
+                    var absoluteResultUrl = resultUrl;
+                    if (resultUrl.indexOf('http') !== 0) {
+                        absoluteResultUrl = 'https://www.bing.com' + resultUrl;
+                    }
+                    return fetch(absoluteResultUrl)
+                        .then(function(resultResponse) {
+                            if (!resultResponse.ok) {
+                                throw new Error('Result page request failed');
+                            }
+                            return resultResponse.text();
+                        })
+                        .then(function(resultHtml) {
+                            if (token !== currentPhotoLoadToken) return;
+                            var imageUrl = extractOpenGraphImageUrl(resultHtml);
+                            if (!imageUrl) {
+                                throw new Error('No image found on result page');
+                            }
+
+                            var img = document.createElement('img');
+                            img.src = imageUrl;
+                            img.alt = query;
+                            img.loading = 'lazy';
+                            img.onerror = function() {
+                                placeholder.innerHTML = '<span>Photo unavailable</span>';
+                            };
+                            placeholder.innerHTML = '';
+                            placeholder.appendChild(img);
+                        });
+                })
+                .catch(function() {
+                    if (token !== currentPhotoLoadToken) return;
+                    var bingSearchUrl = buildBingSearchUrl(query);
+                    var safeBingSearchUrl = bingSearchUrl.replace(/"/g, '&quot;');
+                    placeholder.innerHTML = '<a href="' + safeBingSearchUrl + '" target="_blank" rel="noopener noreferrer">Open Bing search</a>';
+                });
+        }
+
+        function parseMarkdown(text, titleOverride) {
+            if (!text) return "";
+            var lines = text.split("\n");
+            var htmlOutput = [];
+            var inList = false;
+            var cardTitle = titleOverride || "";
+
+            var boldRegex = /\*\*(.*?)\*\*/g;
+            var codeRegex = /`(.*?)`/g;
+            var imageRegex = /^!\[([^\]]*)\]\(([^)]+)\)$/;
+            var linkRegex = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+            var urlRegex = /(https?:\/\/[^\s<>()]+)/g;
+
+            function escapeHtml(value) {
+                return String(value)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;");
+            }
+
+            function formatInline(text) {
+                var escaped = escapeHtml(text);
+                escaped = escaped.replace(linkRegex, function(match, label, href) {
+                    return '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + '</a>';
+                });
+                escaped = escaped.replace(urlRegex, function(url, index) {
+                    if (escaped.slice(index - 6, index) === 'href="') {
+                        return url;
+                    }
+                    return '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(url) + '</a>';
+                });
+                escaped = escaped.replace(boldRegex, '<strong>$1</strong>');
+                escaped = escaped.replace(codeRegex, '<code>$1</code>');
+                return escaped;
+            }
+
+            function getPreviewLink() {
+                for (var i = lines.length - 1; i >= 0; i--) {
+                    var line = lines[i].trim();
+                    if (!line || line === '---') {
+                        continue;
+                    }
+                    var markdownLinkMatch = line.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
+                    if (markdownLinkMatch) {
+                        return { url: markdownLinkMatch[2], text: markdownLinkMatch[1], index: i };
+                    }
+                    var plainUrlMatch = line.match(/^(https?:\/\/\S+)$/);
+                    if (plainUrlMatch) {
+                        return { url: plainUrlMatch[1], text: plainUrlMatch[1], index: i };
+                    }
+                    return null;
+                }
+                return null;
+            }
+
+            function getLinkPreviewHtml(url) {
+                var previewTitle = "Link Preview";
+                try {
+                var parsed = new URL(url);
+                previewTitle = 'Link to ' + parsed.hostname;
+                } catch (e) {
+                previewTitle = 'Link preview';
+                }
+                return (
+                    '<div class="link-preview">' +
+                    '<div class="link-preview-title">' + escapeHtml(previewTitle) + '</div>' +
+                    '<div class="link-preview-url"><a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(url) + '</a></div>' +
+                    '</div>'
+                );
+            }
+
+            var previewLink = getPreviewLink();
+
+            for (var i = 0; i < lines.length; i++) {
+                if (previewLink && i === previewLink.index) {
+                    continue;
+                }
+                var line = lines[i];
+                var trimmed = line.trim();
+                var imageMatch = trimmed.match(imageRegex);
+
+                if (trimmed === "") {
+                    if (inList) {
+                        htmlOutput.push("</ul>");
+                        inList = false;
+                    }
+                    continue;
+                }
+
+                if (imageMatch) {
+                   if (inList) { htmlOutput.push("</ul>"); inList = false; }
+                   var imageQuery = (cardTitle || imageMatch[1]).replace(/Vector Conceptual Visualization/gi, "");
+                   htmlOutput.push(
+                       '<div class="visual-photo" data-photo-query="' + escapeHtml(imageQuery) + '"><span>Loading photo...</span></div>'
+                   );
+                   continue;
+                }
+
+                if (trimmed.indexOf("# ") === 0) {
+                    if (inList) { htmlOutput.push("</ul>"); inList = false; }
+                    cardTitle = trimmed.substring(2);
+                    htmlOutput.push("<h1>" + formatInline(trimmed.substring(2)) + "</h1>");
+                } else if (trimmed.indexOf("## ") === 0) {
+                    if (inList) { htmlOutput.push("</ul>"); inList = false; }
+                    htmlOutput.push("<h2>" + formatInline(trimmed.substring(3)) + "</h2>");
+                } else if (trimmed.indexOf("### ") === 0) {
+                    if (inList) { htmlOutput.push("</ul>"); inList = false; }
+                    if (trimmed.substring(4).toLowerCase() !== "visual reference") {
+                        htmlOutput.push("<h3>" + formatInline(trimmed.substring(4)) + "</h3>");
+                    }
+                } else if (trimmed === "---") {
+                    if (inList) { htmlOutput.push("</ul>"); inList = false; }
+                    htmlOutput.push("<hr>");
+                } else if (trimmed.indexOf("* ") === 0 || trimmed.indexOf("- ") === 0) {
+                    if (!inList) {
+                        htmlOutput.push("<ul>");
+                        inList = true;
+                    }
+                    htmlOutput.push("<li>" + formatInline(trimmed.substring(2)) + "</li>");
+                } else {
+                    if (inList) { htmlOutput.push("</ul>"); inList = false; }
+                    htmlOutput.push("<p>" + formatInline(trimmed) + "</p>");
+                }
+            }
+
+            if (inList) {
+                htmlOutput.push("</ul>");
+            }
+
+            if (previewLink) {
+                htmlOutput.push(getLinkPreviewHtml(previewLink.url));
+            }
+
+            return htmlOutput.join("");
+        }
+
+        function shuffle(array) {
+            var idx = array.length, randomIdx;
+            var newArray = array.slice();
+            while (idx !== 0) {
+                randomIdx = Math.floor(Math.random() * idx);
+                idx--;
+                var temp = newArray[idx];
+                newArray[idx] = newArray[randomIdx];
+                newArray[randomIdx] = temp;
+            }
+            return newArray;
+        }
+
+
+        function readWithFileReader(file, resolve) {
+            var reader = new FileReader();
+            reader.onload = function(event) {
+                resolve(event.target && event.target.result ? event.target.result : "");
+            };
+            reader.onerror = function() {
+                resolve("");
+            };
+            reader.readAsText(file);
+        }
+
+        function readFileAsText(file) {
+            return new Promise(function(resolve) {
+                if (file.text) {
+                    file.text()
+                        .then(resolve)
+                        .catch(function() {
+                            readWithFileReader(file, resolve);
+                        });
+                } else {
+                    readWithFileReader(file, resolve);
+                }
+            });
+        }
+
+        function isCsvFile(file) {
+            var name = (file.name || "").toLowerCase();
+            var type = (file.type || "").toLowerCase();
+            return name.slice(-4) === ".csv" || type === "text/csv";
+        }
+
+        function handleCsvSelection(fileList) {
+            if (!fileList || fileList.length === 0) {
+                return;
+            }
+
+            document.getElementById("card-content").innerHTML = "<h3>Loading...</h3>";
+
+            var csvFiles = [];
+            for (var i = 0; i < fileList.length; i++) {
+                if (isCsvFile(fileList[i])) {
+                    csvFiles.push(fileList[i]);
+                }
+            }
+
+            if (csvFiles.length === 0) {
+                document.getElementById("card-content").innerHTML = "<h3>No CSV file selected.</h3>";
+                return;
+            }
+
+            readFileAsText(csvFiles[0]).then(function(text) {
+                var loaded = buildCardsFromCsv(text);
+                if (!loaded || loaded.length === 0) {
+                    document.getElementById("card-content").innerHTML = "<h3>No readable flashcards found in CSV.</h3>";
+                    cards = [];
+                    currentIndex = 0;
+                    renderCard();
+                    return;
+                }
+
+                cards = shuffle(loaded);
+                currentIndex = 0;
+                renderCard();
+            }).catch(function() {
+                document.getElementById("card-content").innerHTML = "<h3>Unable to read the CSV file.</h3>";
+            });
+        }
+
+        function preloadCsvDeck() {
+            if (!window.fetch) {
+                return;
+            }
+            var container = document.getElementById('card-content');
+            if (container) {
+                container.innerHTML = '<h3>Loading CSV deck...</h3>';
+            }
+
+            fetch('./flashcards_2.csv')
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then(function(text) {
+                    var loaded = buildCardsFromCsv(text);
+                    if (loaded && loaded.length > 0) {
+                        cards = shuffle(loaded);
+                        currentIndex = 0;
+                    } else {
+                        cards = [];
+                    }
+                    renderCard();
+                })
+                .catch(function() {
+                    if (container) {
+                        container.innerHTML = '<h3>Unable to load flashcards_2.csv. Import a CSV file manually.</h3>';
+                    }
+                    cards = [];
+                    currentIndex = 0;
+                    renderCard();
+                });
+        }
+
+        function prevCard() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                renderCard();
+            }
+        }
+        
+        function nextCard() {
+            if (currentIndex < cards.length - 1) {
+                currentIndex++;
+                renderCard();
+            }
+        }
+
+        function resetSwipeVisual(container) {
+            if (!container) {
+                return;
+            }
+            container.classList.remove('card-dragging');
+            container.style.transform = '';
+            container.style.opacity = '';
+        }
+
+        function applySwipeVisual(container, deltaX) {
+            if (!container) {
+                return;
+            }
+            var clampedDelta = Math.max(-140, Math.min(140, deltaX));
+            var scale = Math.max(0.86, 1 - Math.min(0.14, Math.abs(clampedDelta) / 700));
+            var opacity = Math.max(0.7, 1 - Math.abs(clampedDelta) / 420);
+            container.classList.add('card-dragging');
+            container.style.transform = 'translateX(' + clampedDelta + 'px) scale(' + scale + ')';
+            container.style.opacity = opacity.toString();
+        }
+
+        function handleSwipeStart(event) {
+            var point = event.touches && event.touches[0] ? event.touches[0] : event;
+            swipeStartX = point.clientX;
+            swipeStartY = point.clientY;
+            isDragging = true;
+            dragOffsetX = 0;
+            var container = document.getElementById('card-container');
+            if (container) {
+                applySwipeVisual(container, 0);
+            }
+        }
+
+        function handleSwipeMove(event) {
+            if (!isDragging || swipeStartX === null || swipeStartY === null) {
+                return;
+            }
+
+            var point = event.touches && event.touches[0] ? event.touches[0] : event;
+            var deltaX = point.clientX - swipeStartX;
+            var deltaY = point.clientY - swipeStartY;
+            dragOffsetX = deltaX;
+
+            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 4) {
+                event.preventDefault();
+            }
+
+            var container = document.getElementById('card-container');
+            applySwipeVisual(container, deltaX);
+        }
+
+        function handleSwipeEnd(event) {
+            if (!isDragging || swipeStartX === null || swipeStartY === null) {
+                return;
+            }
+
+            var point = event.changedTouches && event.changedTouches[0] ? event.changedTouches[0] : event;
+            var deltaX = point.clientX - swipeStartX;
+            var deltaY = point.clientY - swipeStartY;
+            swipeStartX = null;
+            swipeStartY = null;
+            isDragging = false;
+            var container = document.getElementById('card-container');
+
+            if (Math.abs(deltaX) < 60 || Math.abs(deltaX) <= Math.abs(deltaY)) {
+                resetSwipeVisual(container);
+                return;
+            }
+
+            if (deltaX < 0) {
+                nextCard();
+            } else {
+                prevCard();
+            }
+
+            resetSwipeVisual(container);
+        }
+
+        function cancelSwipe() {
+            swipeStartX = null;
+            swipeStartY = null;
+            isDragging = false;
+            resetSwipeVisual(document.getElementById('card-container'));
+        }
+
+        function initSwipeNavigation() {
+            var container = document.getElementById('card-container');
+            if (!container) {
+                return;
+            }
+
+            container.addEventListener('touchstart', handleSwipeStart, { passive: true });
+            container.addEventListener('touchmove', handleSwipeMove, { passive: false });
+            container.addEventListener('touchend', handleSwipeEnd, { passive: true });
+            container.addEventListener('touchcancel', cancelSwipe, { passive: true });
+            container.addEventListener('mousedown', function(event) {
+                swipeStartX = event.clientX;
+                swipeStartY = event.clientY;
+                isDragging = true;
+                dragOffsetX = 0;
+                applySwipeVisual(container, 0);
+            });
+            container.addEventListener('mousemove', function(event) {
+                if (!isDragging || swipeStartX === null || swipeStartY === null) {
+                    return;
+                }
+                var deltaX = event.clientX - swipeStartX;
+                var deltaY = event.clientY - swipeStartY;
+                dragOffsetX = deltaX;
+                applySwipeVisual(container, deltaX);
+            });
+            container.addEventListener('mouseup', handleSwipeEnd);
+            container.addEventListener('mouseleave', cancelSwipe);
+        }
+        
+        function renderCard() {
+            var contentDiv = document.getElementById('card-content');
+            var prevBtn = document.getElementById('prev-btn');
+            var nextBtn = document.getElementById('next-btn');
+            var progressDiv = document.getElementById('progress');
+
+            if (!contentDiv) return;
+
+            if (cards.length === 0) {
+                contentDiv.innerText = "No cards available.";
+                var container = document.getElementById('card-container');
+                if (container) {
+                    container.classList.remove('rarity-high', 'rarity-mid', 'rarity-low');
+                }
+                if (prevBtn) prevBtn.disabled = true;
+                if (nextBtn) nextBtn.disabled = true;
+                if (progressDiv) progressDiv.innerText = '0 of 0';
+                return;
+            }
+
+            var currentCard = cards[currentIndex];
+            updateCardContainerRarity();
+
+            currentPhotoLoadToken += 1;
+            var photoLoadToken = currentPhotoLoadToken;
+
+            try {
+               contentDiv.innerHTML = parseMarkdown(currentCard.markdown, currentCard.title);
+            } catch (e) {
+                contentDiv.innerHTML = "<p>Error: " + e.message + "</p>";
+            }
+
+            var photoPlaceholders = contentDiv.querySelectorAll('.visual-photo[data-photo-query]');
+            for (var i = 0; i < photoPlaceholders.length; i++) {
+                loadBingPhotoIntoPlaceholder(photoPlaceholders[i], photoPlaceholders[i].getAttribute('data-photo-query'), photoLoadToken);
+            }
+
+            // If MathJax is available, typeset the newly-rendered content so $...$ and \(...\) render
+            if (window.MathJax && typeof MathJax.typesetPromise === 'function') {
+                try {
+                    MathJax.typesetPromise([contentDiv]).catch(function(err) {
+                        // swallow MathJax errors but log for debugging
+                        console.error('MathJax typeset error', err);
+                    });
+                } catch (mjErr) {
+                    console.error('MathJax scheduling error', mjErr);
+                }
+            }
+
+            if (progressDiv) progressDiv.innerText = (currentIndex + 1) + ' of ' + cards.length;
+            if (prevBtn) prevBtn.disabled = (currentIndex === 0);
+            if (nextBtn) nextBtn.disabled = (currentIndex === cards.length - 1);
+        }
+
+        preloadCsvDeck();
+        initSwipeNavigation();
+        renderCard();
+    </script>
+</body>
+</html>
