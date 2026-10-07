@@ -1,6 +1,6 @@
 # 🎴 Research Flashcard
 
-**Research Flashcard** is a lightweight, web-based flashcard application designed to display niche academic research topics fyi. Built as a simple HTML/JS single-page application, it works cross-platform without complex setup or dependencies.
+**Research Flashcard** is a lightweight, web-based flashcard application designed to display niche academic research topics fyi. Built as a simple HTML/JS single-page application, it works cross-platform without complex setup or runtime dependencies.
 
 ---
 
@@ -21,13 +21,24 @@
 
 ## 📱 Quick Start & iOS Instructions
 
+### ☁️ Deploy to Cloudflare Workers
+
+The static site and demo CSV are in `public/` and deploy together as a Cloudflare Worker serving static assets.
+
+1. Install [Node.js 22 or later](https://nodejs.org/) and run `npm install`.
+2. Sign in to Cloudflare with `npx wrangler login`.
+3. Preview locally with `npm run dev`.
+4. Deploy with `npm run deploy`. Wrangler prints the deployed URL when the upload completes.
+
+No build step or Cloudflare bindings are required.
+
 ### 🍏 iOS (iPhone / iPad) Users
-1. Download or install any **HTML Viewer** app from the App Store (or save `Flashcard.html` into the **Files** app).
-2. Open `Flashcard.html` inside the HTML Viewer or Safari.
+1. Download or install any **HTML Viewer** app from the App Store (or save `public/index.html` into the **Files** app).
+2. Open `index.html` inside the HTML Viewer or Safari.
 3. Import your `.csv` or `.md` flashcard files to start browsing.
 
 ### 💻 PC / Mac Users
-* Double-click `Flashcard.html` to launch directly in Chrome, Edge, Safari, or VS Code Previewer.
+* Double-click `public/index.html` to launch directly in Chrome, Edge, Safari, or VS Code Previewer.
 
 ---
 
